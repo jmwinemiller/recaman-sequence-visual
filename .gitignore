@@ -1,3 +1,6 @@
+# OUTPUT
+*.hmtl
+
 # History files
 .Rhistory
 .Rapp.history

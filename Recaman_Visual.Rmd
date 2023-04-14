@@ -173,8 +173,8 @@ ggplot(vis_df, aes(x, y)) +
   xlim(0, vis_max_x_lim) +
   theme(
     plot.background = element_rect(fill = "transparent"),
-    panel.border = element_blank(),
     panel.background = element_rect(fill = "transparent"),
+    panel.border = element_blank(),
     panel.grid = element_blank(),
     axis.line = element_blank(),
     axis.text = element_blank(),
