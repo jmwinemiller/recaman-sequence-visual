@@ -1,0 +1,258 @@
+---
+title: "Recaman's Sequence Background"
+author: "Jordan Winemiller"
+date: "17 August 2022"
+output:
+  html_document
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r load_packages, warning=FALSE, results='hide', message=FALSE, include=FALSE}
+ip = installed.packages()[, 1]
+ip = names(unlist(ip))
+
+required_packages = c(
+  "grid",
+  "png",
+  "tidyverse")
+
+for (package in required_packages) {
+  if (package %in% ip) {
+    next
+  } else {
+    install.packages(package, repos = "http://cran.us.r-project.org")
+  }
+}
+
+lapply(required_packages, require, character.only = TRUE)
+```
+
+## Creating the dataset
+
+### Creating Recaman's sequence
+
+```{r warning=FALSE, message=FALSE}
+make_sequence <- function(num) {
+  seq <- numeric(num)
+  for (i in 1:length(seq)) {
+    curr <- seq[i] - i
+    if (curr > 0 & !(curr %in% seq)) {
+      seq[i + 1] <- curr
+    }
+    else
+      seq[i + 1] <- seq[i] + i
+  }
+  seq <- seq[-length(seq)]
+  seq
+}
+```
+
+
+### Sequence validation
+
+```{r}
+test_sequence = make_sequence(15)
+test_sequence
+```
+
+
+### Constructing arc
+
+```{r}
+construct_arc_color <- function(start, stop, arc_type, arc_color) {
+  r <- abs(start - stop) / 2
+  x_0 <- min(c(start, stop)) + r
+  y_0 <- 0
+  switch(
+    arc_type,
+    "up_forward" = theta <- seq(pi, 0, -0.01),
+    "up_backward" = theta <- seq(0, pi, 0.01), 
+    "down_forward" = theta <- seq(pi, 2 * pi, 0.01),
+    "down_backward" = theta <- seq(2 * pi, pi, -0.01), 
+  )
+  x <- r * cos(theta) + x_0 
+  y <- r * sin(theta) + y_0
+  df <- data.frame(x, y, arc_color)
+}
+```
+
+
+### Create arc dataset
+
+```{r}
+create_visual_df <- function(num, line_size = 1, alpha = 0.9) {
+  seq <- make_sequence(num = num)
+  initial_df <- data.frame(
+    start = seq,
+    stop = lead(seq), 
+    arc_side = rep_len(c("down_", "up_"), length(seq))
+  ) %>% 
+  dplyr::mutate(
+    arc_direction = ifelse(
+      stop - start > 0,
+      "forward",
+      "backward"),
+    arc_type = paste0(arc_side, arc_direction),
+    arc_color = case_when(
+      arc_type == "down_forward" ~ "blue",
+      arc_type == "up_backward" ~ "blue",
+      arc_type == "down_backward" ~ "gold",
+      arc_type == "up_forward" ~ "gold",
+    )
+  ) %>% 
+  dplyr::filter(!is.na(stop))
+  arc_coord_df <- Map(
+    construct_arc_color,
+    start = initial_df$start,
+    stop = initial_df$stop,
+    arc_type = initial_df$arc_type,
+    arc_color = initial_df$arc_color
+  )  
+  visual_df <- do.call("rbind", arc_coord_df)
+}
+```
+
+
+### Color visualization dataset validation
+
+#### Coordinate point validation
+
+```{r}
+test_df = create_visual_df(15)
+head(test_df, 5)
+```
+
+
+#### Color assigment validation
+
+```{r}
+unique(test_df$arc_color)
+```
+
+
+
+```{r include=FALSE}
+# n = 1986
+# vis_df = create_visual_df(1986)
+# vis_max_x_lim = 7150
+# n = 86
+vis_df = create_visual_df(86)
+vis_max_x_lim = 230
+# n = 36
+# vis_df = create_visual_df(36)
+# vis_max_x_lim = 120
+
+```
+
+
+## Create Visualization
+
+### Set visualization parameters
+
+```{r}
+vis_df = create_visual_df(86)
+
+vis_size = 1
+vis_alpha = 0.7
+vis_color = "#4169E1"
+vis_max_x_lim = 230
+```
+
+
+### Recaman's sequence visualization one color
+
+```{r}
+ggplot(vis_df, aes(x, y)) +
+  geom_path(alpha = vis_alpha, linewidth = vis_size, col = vis_color) +
+  coord_fixed() +
+  xlim(0, vis_max_x_lim) +
+  theme(
+    plot.background = element_rect(fill = "transparent"),
+    panel.border = element_blank(),
+    panel.background = element_rect(fill = "transparent"),
+    panel.grid = element_blank(),
+    axis.line = element_blank(),
+    axis.text = element_blank(),
+    axis.ticks = element_blank(),
+    axis.title = element_blank()
+  ) 
+```
+
+
+### Recaman's sequence visualization one color
+
+```{r}
+ggplot(vis_df, aes(x, y, color = as.character(arc_color))) +
+  geom_path(alpha = vis_alpha, linewidth = vis_size) +
+  scale_color_identity() +
+  coord_fixed() + 
+  xlim(0, vis_max_x_lim) +
+  theme(
+    plot.background = element_rect(fill = "#404040"),
+    panel.background = element_rect(fill = "#404040"),
+    panel.grid = element_blank(),
+    axis.line = element_blank(),
+    axis.text = element_blank(),
+    axis.ticks = element_blank(),
+    axis.title = element_blank()
+  ) 
+```
+
+
+## Applying custom background to visual
+
+### Load background image
+
+```{r}
+img_path = "./wall.png"
+img = png::readPNG(img_path)
+```
+
+
+### Convert to rasterGrob
+
+```{r}
+bg_img = rasterGrob(
+  img,
+  width = unit(1, "npc"),
+  height = unit(1, "npc"),
+  interpolate = FALSE)
+```
+
+
+### Set visualization parameters
+
+```{r}
+bg_vis_df = create_visual_df(86)
+
+bg_vis_size = 0.75 
+bg_vis_alpha = 0.9
+bg_vis_color = "#4169E1"
+bg_vis_max_x_lim = 230
+```
+
+
+### Visualization with background image
+
+```{r}
+ggplot(bg_vis_df, aes(x, y)) +
+  annotation_custom(bg_img, -Inf, Inf, -Inf, Inf) +
+  geom_path(alpha = bg_vis_alpha, linewidth = bg_vis_size, col = bg_vis_color) +
+  coord_fixed() +
+  xlim(0, bg_vis_max_x_lim) +
+  theme(
+    plot.background = element_rect(fill = "transparent"),
+    panel.border = element_blank(),
+    panel.background = element_rect(fill = "transparent"),
+    panel.grid = element_blank(),
+    axis.line = element_blank(),
+    axis.text = element_blank(),
+    axis.ticks = element_blank(),
+    axis.title = element_blank()
+  ) 
+```
